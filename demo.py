@@ -19,26 +19,53 @@ def main():
         p.error("--seconds must be positive")
     if not Path(args.model).is_file():
         p.error("Model missing: pre-download yolo11n.pt before visiting the seller")
+    if not args.headless:
+        from display_check import prepare_display
+        try:
+            prepare_display()
+        except RuntimeError as exc:
+            p.exit(2, f"Display unavailable: {exc}\n")
     import cv2
-    import torch
-    from ultralytics import YOLO
-    if not torch.cuda.is_available():
-        raise RuntimeError("CUDA unavailable. Use a Jetson-compatible PyTorch/JetPack environment.")
-    print("GPU:", torch.cuda.get_device_name(0), "Torch:", torch.__version__)
-    model = YOLO(args.model)
-    cap = cv2.VideoCapture(int(args.source) if args.source.isdecimal() else args.source)
+    import numpy as np
     window = "Jetson YOLO - Q or Esc to quit"
+
+    def status(msg):
+        # Print each stage and paint it on screen so a slow start never looks like a hang.
+        print(msg, flush=True)
+        if args.headless:
+            return
+        splash = np.zeros((540, 960, 3), np.uint8)
+        cv2.putText(splash, "Jetson YOLO demo", (40, 120), cv2.FONT_HERSHEY_SIMPLEX, 1.6, (0, 255, 0), 3)
+        cv2.putText(splash, msg[:60], (40, 260), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        cv2.putText(splash, "First start can take 1-3 minutes", (40, 340), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (180, 180, 180), 2)
+        cv2.imshow(window, splash)
+        cv2.waitKey(1)
+
     if not args.headless:
         cv2.namedWindow(window, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
         cv2.resizeWindow(window, args.window_width, int(args.window_width * 0.75))
         if args.fullscreen:
             cv2.setWindowProperty(window, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    status("Loading PyTorch / CUDA...")
+    import torch
+    from ultralytics import YOLO
+    if not torch.cuda.is_available():
+        raise RuntimeError("CUDA unavailable. Use a Jetson-compatible PyTorch/JetPack environment.")
+    print("GPU:", torch.cuda.get_device_name(0), "Torch:", torch.__version__)
+    status(f"Loading model {args.model}...")
+    model = YOLO(args.model)
+    status(f"Opening camera/video source {args.source}...")
+    cap = cv2.VideoCapture(int(args.source) if args.source.isdecimal() else args.source)
+    if not cap.isOpened():
+        raise RuntimeError(f"Cannot open source {args.source!r}. Check the USB camera (ls /dev/video*) or file path.")
     try:
         ok, frame = cap.read()
         if not ok:
             raise RuntimeError("Cannot read camera/video")
-        for _ in range(10):
+        for i in range(10):
+            status(f"GPU warmup {i + 1}/10...")
             model.predict(frame, device=0, imgsz=640, verbose=False)
+        status("Running live detection")
         torch.cuda.synchronize()
         start = time.perf_counter()
         count, inference_ms = 0, 0.0

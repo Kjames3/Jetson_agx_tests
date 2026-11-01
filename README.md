@@ -114,3 +114,12 @@ use `bash agx-factory-reset.sh --launch` on the host. The SDK Manager UI perform
 the actual flash after you select the correct hardware and storage.
 This cannot reproduce an unknown original factory image or reset security fuses.
 No reset/recovery operations were tested on the Nano.
+
+## Display troubleshooting
+The demo discovers a single local X11 display and the current user's GDM
+authorization file when SSH does not supply DISPLAY/XAUTHORITY. It probes OpenCV
+in a separate process before loading the model, so display failures produce a
+clear error instead of aborting the demo. This does not start a desktop or bypass
+display permissions. Log into the attached desktop as the same user, or use
+--headless to measure FPS and save a detection image without a window.
+Copy display_check.py alongside demo.py when transferring the package.

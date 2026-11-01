@@ -19,6 +19,12 @@ done
 headless=false
 for arg in "$@"; do [[ $arg != --headless ]] || headless=true; done
 if ! $headless; then
+  if [[ -z ${DISPLAY:-} ]]; then
+    sockets=(/tmp/.X11-unix/X[0-9]*)
+    if [[ ${#sockets[@]} == 1 && -S ${sockets[0]} ]]; then
+      export DISPLAY=":${sockets[0]##*/X}"
+    fi
+  fi
   [[ -n ${DISPLAY:-} ]] || { echo "No display; pass --headless."; exit 1; }
   auth=${XAUTHORITY:-$HOME/.Xauthority}
   if [[ ! -r $auth && -r /run/user/$(id -u)/gdm/Xauthority ]]; then
