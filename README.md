@@ -124,9 +124,12 @@ display permissions. Log into the attached desktop as the same user, or use
 --headless to measure FPS and save a detection image without a window.
 Copy display_check.py alongside demo.py when transferring the package.
 
-## Bundled test video
-`test-video.mp4` (people, cars, bicycles; 54 s, 768x432) lets you run the demo
-without a camera: `bash jetson-check.sh --demo --fullscreen --seconds 600 --source test-video.mp4`.
-Video files loop until `--seconds` elapses. Source: Intel IoT DevKit sample-videos
-(`person-bicycle-car-detection.mp4`), licensed CC-BY 4.0,
-https://github.com/intel-iot-devkit/sample-videos.
+## Bundled test videos (default source)
+With no `--source`, the demo plays every clip in `videos/` in turn, looping until
+`--seconds` elapses, so no camera is needed:
+`bash jetson-check.sh --demo --fullscreen --seconds 600`.
+Use `--source 0` for a USB camera or `--source file.mp4` for your own clip.
+Clips (Intel IoT DevKit sample-videos, CC-BY 4.0,
+https://github.com/intel-iot-devkit/sample-videos):
+- `person-bicycle-car.mp4` from `person-bicycle-car-detection.mp4`
+- `people-walking.mp4` from `people-detection.mp4`

@@ -4,9 +4,12 @@ import argparse
 import time
 from pathlib import Path
 
+BUNDLED = sorted((Path(__file__).resolve().parent / "videos").glob("*.mp4"))
+
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--source", default="0", help="USB camera index, local video (loops), or stream URL")
+    p.add_argument("--source", default="videos",
+                   help="'videos' (bundled clips, played in turn), camera index, video file, or stream URL")
     p.add_argument("--model", default="yolo11n.pt", help="Local weights or TensorRT engine")
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--headless", action="store_true")
@@ -54,11 +57,20 @@ def main():
     print("GPU:", torch.cuda.get_device_name(0), "Torch:", torch.__version__)
     status(f"Loading model {args.model}...")
     model = YOLO(args.model)
-    status(f"Opening camera/video source {args.source}...")
-    cap = cv2.VideoCapture(int(args.source) if args.source.isdecimal() else args.source)
-    is_file = Path(args.source).is_file()
+    if args.source == "videos":
+        if not BUNDLED:
+            raise RuntimeError("No clips in videos/. Copy the full repo, or pass --source 0 for a camera.")
+        playlist = [str(v) for v in BUNDLED]
+    elif Path(args.source).is_file():
+        playlist = [args.source]
+    else:
+        playlist = None  # camera or stream: no looping
+    clip = 0
+    src = playlist[0] if playlist else args.source
+    status(f"Opening source {src}...")
+    cap = cv2.VideoCapture(int(src) if src.isdecimal() else src)
     if not cap.isOpened():
-        raise RuntimeError(f"Cannot open source {args.source!r}. Check the USB camera (ls /dev/video*) or file path.")
+        raise RuntimeError(f"Cannot open source {src!r}. Check the USB camera (ls /dev/video*) or file path.")
     try:
         ok, frame = cap.read()
         if not ok:
@@ -73,9 +85,12 @@ def main():
         while time.perf_counter() - start < args.seconds:
             tick = time.perf_counter()
             ok, frame = cap.read()
-            if not ok and is_file:
-                # Loop video files so a short clip can drive a long stability run.
-                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            if not ok and playlist:
+                # Cycle through the clips so short videos can drive a long stability run.
+                cap.release()
+                clip = (clip + 1) % len(playlist)
+                print(f"Now playing {playlist[clip]}", flush=True)
+                cap = cv2.VideoCapture(playlist[clip])
                 ok, frame = cap.read()
             if not ok:
                 break
