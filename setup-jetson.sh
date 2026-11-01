@@ -69,13 +69,20 @@ if $save; then
   echo "Saving $image to $tar (several GB; copy to an exFAT/ext4 stick, not FAT32)"
   "${root[@]}" docker save -o "$tar" "$image"
   "${root[@]}" chown "$(id -u):$(id -g)" "$tar"
-  ls -lh "$tar"; exit 0
+  ls -lh "$tar"
+  echo "For a FAT32 stick: split -b 3900M $tar $tar.part-"
+  exit 0
 fi
 image="ultralytics/ultralytics:latest-jetson-jetpack$jp"
 tar="images/ultralytics-jetpack$jp.tar"
+parts=("$tar".part-*)
 if [[ -f $tar ]]; then
   echo "Loading $tar (offline)..."
   "${root[@]}" docker load -i "$tar"
+elif [[ -f ${parts[0]} ]]; then
+  # FAT32 sticks cap files at 4 GB; stream split parts without rejoining on disk.
+  echo "Loading ${#parts[@]} parts of $tar (offline)..."
+  cat "${parts[@]}" | "${root[@]}" docker load
 else
   echo "No $tar; pulling a multi-GB image from the internet."
   "${root[@]}" docker pull "$image"

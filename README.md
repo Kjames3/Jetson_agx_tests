@@ -144,7 +144,9 @@ several GB at the inspection, save it beforehand on a Jetson with internet:
 bash setup-jetson.sh --save-image 6   # new AGX kits usually ship JetPack 6
 bash setup-jetson.sh --save-image 5   # older stock may have JetPack 5
 ```
-Copy `images/` (not committed) onto an exFAT or ext4 USB stick next to the repo.
-FAT32 cannot hold files over 4 GB. On the AGX, `bash setup-jetson.sh` loads the
+Copy `images/` (not committed) onto a USB stick next to the repo.
+For FAT32 sticks (4 GB file limit) split it first:
+`split -b 3900M images/ultralytics-jetpack6.tar images/ultralytics-jetpack6.tar.part-`;
+setup streams the parts into Docker without rejoining. On the AGX, `bash setup-jetson.sh` loads the
 matching `images/ultralytics-jetpackN.tar` and only uses apt when Docker or the
 NVIDIA container toolkit is missing.
