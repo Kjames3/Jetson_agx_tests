@@ -123,3 +123,10 @@ clear error instead of aborting the demo. This does not start a desktop or bypas
 display permissions. Log into the attached desktop as the same user, or use
 --headless to measure FPS and save a detection image without a window.
 Copy display_check.py alongside demo.py when transferring the package.
+
+## Bundled test video
+`test-video.mp4` (people, cars, bicycles; 54 s, 768x432) lets you run the demo
+without a camera: `bash jetson-check.sh --demo --fullscreen --seconds 600 --source test-video.mp4`.
+Video files loop until `--seconds` elapses. Source: Intel IoT DevKit sample-videos
+(`person-bicycle-car-detection.mp4`), licensed CC-BY 4.0,
+https://github.com/intel-iot-devkit/sample-videos.

@@ -6,7 +6,7 @@ from pathlib import Path
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--source", default="0", help="USB camera index or local video")
+    p.add_argument("--source", default="0", help="USB camera index, local video (loops), or stream URL")
     p.add_argument("--model", default="yolo11n.pt", help="Local weights or TensorRT engine")
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--headless", action="store_true")
@@ -56,6 +56,7 @@ def main():
     model = YOLO(args.model)
     status(f"Opening camera/video source {args.source}...")
     cap = cv2.VideoCapture(int(args.source) if args.source.isdecimal() else args.source)
+    is_file = Path(args.source).is_file()
     if not cap.isOpened():
         raise RuntimeError(f"Cannot open source {args.source!r}. Check the USB camera (ls /dev/video*) or file path.")
     try:
@@ -72,6 +73,10 @@ def main():
         while time.perf_counter() - start < args.seconds:
             tick = time.perf_counter()
             ok, frame = cap.read()
+            if not ok and is_file:
+                # Loop video files so a short clip can drive a long stability run.
+                cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                ok, frame = cap.read()
             if not ok:
                 break
             result = model.predict(frame, device=0, imgsz=640, verbose=False)[0]
