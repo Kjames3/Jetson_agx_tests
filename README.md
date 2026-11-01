@@ -133,3 +133,18 @@ Clips (Intel IoT DevKit sample-videos, CC-BY 4.0,
 https://github.com/intel-iot-devkit/sample-videos):
 - `person-bicycle-car.mp4` from `person-bicycle-car-detection.mp4`
 - `people-walking.mp4` from `people-detection.mp4`
+
+## Offline preparation
+`yolo11n.pt` is committed to the repo (Ultralytics weights, AGPL-3.0), so no
+model download is needed. The weights work on JetPack 5 and 6.
+
+The Docker setup still needs the Ultralytics Jetson image. To avoid downloading
+several GB at the inspection, save it beforehand on a Jetson with internet:
+```bash
+bash setup-jetson.sh --save-image 6   # new AGX kits usually ship JetPack 6
+bash setup-jetson.sh --save-image 5   # older stock may have JetPack 5
+```
+Copy `images/` (not committed) onto an exFAT or ext4 USB stick next to the repo.
+FAT32 cannot hold files over 4 GB. On the AGX, `bash setup-jetson.sh` loads the
+matching `images/ultralytics-jetpackN.tar` and only uses apt when Docker or the
+NVIDIA container toolkit is missing.

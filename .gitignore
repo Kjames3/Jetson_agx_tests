@@ -3,3 +3,5 @@ __pycache__/
 *.pt
 *.engine
 .jetson-image
+!yolo11n.pt
+images/

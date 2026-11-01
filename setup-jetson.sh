@@ -2,11 +2,21 @@
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 if [[ ${1:-} == --help ]]; then
-  echo "Usage: bash setup-jetson.sh [--native] (JetPack 5/6; --native verifies existing dependencies)"
+  cat <<'USAGE'
+Usage: bash setup-jetson.sh [--native | --save-image [5|6]]
+  (none)          Docker setup. Loads images/ultralytics-jetpackN.tar if present
+                  (offline), else pulls from the internet.
+  --native        Verify an existing CUDA PyTorch + Ultralytics install.
+  --save-image N  On a prep Jetson with internet: pull the JetPack N image and
+                  save it to images/ for offline setup (default: this board's).
+USAGE
   exit 0
 fi
-native=false
-if [[ ${1:-} == --native ]]; then native=true; shift; fi
+native=false save=false save_jp=
+case ${1:-} in
+  --native) native=true; shift ;;
+  --save-image) save=true; shift; [[ ${1:-} =~ ^[56]$ ]] && { save_jp=$1; shift; } ;;
+esac
 [[ $# == 0 ]] || { echo "Unknown argument"; exit 2; }
 [[ $(uname -m) == aarch64 && -f /etc/nv_tegra_release ]] ||
   { echo "Run this on the Jetson, not your PC."; exit 1; }
@@ -16,6 +26,8 @@ case "$release" in
   36) jp=6 ;;
   *) echo "Unsupported L4T R$release. Setup supports JetPack 5/6 only."; exit 1 ;;
 esac
+echo "Detected L4T R$release (JetPack $jp)"
+[[ -f yolo11n.pt ]] && echo "yolo11n.pt present (bundled; no model download needed)"
 if $native; then
   python3 -c '
 import torch, cv2, numpy as np
@@ -32,19 +44,42 @@ print("CUDA YOLO smoke test passed:", torch.cuda.get_device_name(0))
 fi
 root=()
 (( EUID == 0 )) || root=(sudo)
-echo "Installing Docker/runtime and inspection utilities; downloading a multi-GB YOLO image."
-"${root[@]}" apt-get update
-packages=(nvidia-container-toolkit usbutils iproute2)
+# Only touch apt (needs internet) when something is actually missing.
+packages=()
+command -v nvidia-ctk >/dev/null || packages+=(nvidia-container-toolkit)
+command -v lsusb >/dev/null || packages+=(usbutils)
 command -v docker >/dev/null || packages+=(docker.io)
-"${root[@]}" apt-get install -y "${packages[@]}"
+if (( ${#packages[@]} )); then
+  echo "Installing: ${packages[*]} (needs internet)"
+  "${root[@]}" apt-get update
+  "${root[@]}" apt-get install -y "${packages[@]}"
+fi
 "${root[@]}" systemctl start docker
 if ! "${root[@]}" docker info --format '{{json .Runtimes}}' | grep -q '"nvidia"'; then
   "${root[@]}" nvidia-ctk runtime configure --runtime=docker
   echo "Restarting Docker to enable the NVIDIA runtime."
   "${root[@]}" systemctl restart docker
 fi
+if $save; then
+  jp=${save_jp:-$jp}
+  image="ultralytics/ultralytics:latest-jetson-jetpack$jp"
+  tar="images/ultralytics-jetpack$jp.tar"
+  mkdir -p images
+  "${root[@]}" docker pull "$image"
+  echo "Saving $image to $tar (several GB; copy to an exFAT/ext4 stick, not FAT32)"
+  "${root[@]}" docker save -o "$tar" "$image"
+  "${root[@]}" chown "$(id -u):$(id -g)" "$tar"
+  ls -lh "$tar"; exit 0
+fi
 image="ultralytics/ultralytics:latest-jetson-jetpack$jp"
-"${root[@]}" docker pull "$image"
+tar="images/ultralytics-jetpack$jp.tar"
+if [[ -f $tar ]]; then
+  echo "Loading $tar (offline)..."
+  "${root[@]}" docker load -i "$tar"
+else
+  echo "No $tar; pulling a multi-GB image from the internet."
+  "${root[@]}" docker pull "$image"
+fi
 image_id=$("${root[@]}" docker image inspect --format '{{.Id}}' "$image")
 mkdir -p reports
 "${root[@]}" docker run --rm --runtime=nvidia --ipc=host   --user "$(id -u):$(id -g)" -e HOME=/tmp -e YOLO_CONFIG_DIR=/tmp/yolo   -v "$PWD:/work" -w /work "$image_id" python3 -c '
