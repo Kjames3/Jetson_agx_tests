@@ -10,7 +10,11 @@ def main():
     p.add_argument("--model", default="yolo11n.pt", help="Local weights or TensorRT engine")
     p.add_argument("--seconds", type=float, default=60)
     p.add_argument("--headless", action="store_true")
+    p.add_argument("--fullscreen", action="store_true", help="Fill the attached display")
+    p.add_argument("--window-width", type=int, default=1280)
     args = p.parse_args()
+    if args.window_width < 320:
+        p.error("--window-width must be at least 320")
     if args.seconds <= 0:
         p.error("--seconds must be positive")
     if not Path(args.model).is_file():
@@ -23,6 +27,12 @@ def main():
     print("GPU:", torch.cuda.get_device_name(0), "Torch:", torch.__version__)
     model = YOLO(args.model)
     cap = cv2.VideoCapture(int(args.source) if args.source.isdecimal() else args.source)
+    window = "Jetson YOLO - Q or Esc to quit"
+    if not args.headless:
+        cv2.namedWindow(window, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+        cv2.resizeWindow(window, args.window_width, int(args.window_width * 0.75))
+        if args.fullscreen:
+            cv2.setWindowProperty(window, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
     try:
         ok, frame = cap.read()
         if not ok:
@@ -43,14 +53,19 @@ def main():
             count += 1
             annotated = result.plot()
             fps = 1 / (time.perf_counter() - tick)
-            cv2.putText(annotated, f"Capture+YOLO+plot: {fps:.1f} FPS", (15, 35),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+            # A separate high-contrast panel keeps timings clear of detection labels.
+            annotated = cv2.resize(annotated, (960, round(annotated.shape[0] * 960 / annotated.shape[1])))
+            annotated = cv2.copyMakeBorder(annotated, 115, 0, 0, 0, cv2.BORDER_CONSTANT)
+            cv2.putText(annotated, f"FPS: {fps:.1f}   Inference: {result.speed['inference']:.1f} ms",
+                        (20, 48), cv2.FONT_HERSHEY_SIMPLEX, 1.1, (0, 255, 0), 2)
+            cv2.putText(annotated, "Capture + YOLO + plot timing | Q / Esc to quit",
+                        (20, 92), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
             if count == 1:
                 Path("reports").mkdir(exist_ok=True)
                 cv2.imwrite("reports/detection.jpg", annotated)
             if not args.headless:
-                cv2.imshow("Jetson YOLO — Q to quit", annotated)
-                if cv2.waitKey(1) & 255 == ord("q"):
+                cv2.imshow(window, annotated)
+                if cv2.waitKey(1) & 255 in (ord("q"), 27):
                     break
         elapsed = time.perf_counter() - start
         if not count:

@@ -83,3 +83,34 @@ if the seller cannot demonstrate CUDA working or refuses basic inspection.
 ## Validation
 Shell syntax and Python CLI checked on the development host. No Jetson hardware
 validation has been performed; actual FPS must be measured on the seller's unit.
+
+## Verified on the robot (2026-10-31)
+Orin Nano 8GB, L4T 36.4.7, native Torch 2.10.0 / Ultralytics 8.4.24:
+Astra Pro USB RGB camera, 640 input, 584 frames in 30.01s = 19.46 loop FPS;
+32.00 ms mean model inference. ROS processes were running concurrently.
+Desktop window and saved detections verified. Container setup remains unverified.
+
+If CUDA PyTorch, OpenCV and Ultralytics are already installed:
+```bash
+bash setup-jetson.sh --native
+DISPLAY=:0 XAUTHORITY=/run/user/1000/gdm/Xauthority python3 demo.py --seconds 300
+```
+Native setup downloads the weights and tests GPU inference; it does not install
+missing Python packages. Display/auth values above apply to the tested robot session.
+
+## Small-screen demo
+The preview now defaults to a resizable 1280-pixel window with a large timing panel.
+For a small attached screen:
+```bash
+bash jetson-check.sh --demo --source 0 --seconds 600 --fullscreen
+```
+Use Q or Esc to quit. Fullscreen changes presentation, not the 640 model input.
+With native dependencies use `python3 demo.py --fullscreen --seconds 600`.
+
+## Clean installation after purchase
+`agx-factory-reset.sh` is a HOST-PC guide/SDK Manager launcher, not an on-device
+erase command. It refuses to run on Jetsons. See its instructions, then optionally
+use `bash agx-factory-reset.sh --launch` on the host. The SDK Manager UI performs
+the actual flash after you select the correct hardware and storage.
+This cannot reproduce an unknown original factory image or reset security fuses.
+No reset/recovery operations were tested on the Nano.

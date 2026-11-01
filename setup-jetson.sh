@@ -2,9 +2,11 @@
 set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
 if [[ ${1:-} == --help ]]; then
-  echo "Usage: bash setup-jetson.sh (on JetPack 5/6 Jetson, internet required)"
+  echo "Usage: bash setup-jetson.sh [--native] (JetPack 5/6; --native verifies existing dependencies)"
   exit 0
 fi
+native=false
+if [[ ${1:-} == --native ]]; then native=true; shift; fi
 [[ $# == 0 ]] || { echo "Unknown argument"; exit 2; }
 [[ $(uname -m) == aarch64 && -f /etc/nv_tegra_release ]] ||
   { echo "Run this on the Jetson, not your PC."; exit 1; }
@@ -14,11 +16,27 @@ case "$release" in
   36) jp=6 ;;
   *) echo "Unsupported L4T R$release. Setup supports JetPack 5/6 only."; exit 1 ;;
 esac
+if $native; then
+  python3 -c '
+import torch, cv2, numpy as np
+from ultralytics import YOLO
+assert torch.cuda.is_available(), "Install JetPack-compatible CUDA PyTorch first"
+print("Downloading/loading yolo11n.pt...", flush=True)
+model = YOLO("yolo11n.pt")
+model.predict(np.zeros((640,640,3), dtype=np.uint8), device=0, verbose=False)
+torch.cuda.synchronize()
+print("CUDA YOLO smoke test passed:", torch.cuda.get_device_name(0))
+'
+  echo "Ready: python3 demo.py --source 0 --seconds 300"
+  exit 0
+fi
 root=()
 (( EUID == 0 )) || root=(sudo)
 echo "Installing Docker/runtime and inspection utilities; downloading a multi-GB YOLO image."
 "${root[@]}" apt-get update
-"${root[@]}" apt-get install -y docker.io nvidia-container-toolkit usbutils iproute2
+packages=(nvidia-container-toolkit usbutils iproute2)
+command -v docker >/dev/null || packages+=(docker.io)
+"${root[@]}" apt-get install -y "${packages[@]}"
 "${root[@]}" systemctl start docker
 if ! "${root[@]}" docker info --format '{{json .Runtimes}}' | grep -q '"nvidia"'; then
   "${root[@]}" nvidia-ctk runtime configure --runtime=docker
@@ -33,6 +51,7 @@ mkdir -p reports
 import torch, cv2, numpy as np
 from ultralytics import YOLO
 assert torch.cuda.is_available(), "CUDA unavailable in container"
+print("Downloading/loading YOLO11n in the project folder...", flush=True)
 model = YOLO("yolo11n.pt")
 model.predict(np.zeros((640,640,3), dtype=np.uint8), device=0, verbose=False)
 torch.cuda.synchronize()

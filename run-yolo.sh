@@ -21,6 +21,9 @@ for arg in "$@"; do [[ $arg != --headless ]] || headless=true; done
 if ! $headless; then
   [[ -n ${DISPLAY:-} ]] || { echo "No display; pass --headless."; exit 1; }
   auth=${XAUTHORITY:-$HOME/.Xauthority}
+  if [[ ! -r $auth && -r /run/user/$(id -u)/gdm/Xauthority ]]; then
+    auth=/run/user/$(id -u)/gdm/Xauthority
+  fi
   [[ -r $auth ]] || { echo "No readable Xauthority; use --headless or set XAUTHORITY."; exit 1; }
   args+=(-e DISPLAY -e XAUTHORITY=/tmp/xauth
          -v "$auth:/tmp/xauth:ro" -v /tmp/.X11-unix:/tmp/.X11-unix:ro)

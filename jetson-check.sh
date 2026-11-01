@@ -26,7 +26,7 @@ check "USB (plug devices into each port)" lsusb -t
 check "Network interfaces" ip -brief address
 check "Power mode (read only)" nvpmodel -q
 check "Clocks (read only)" jetson_clocks --show
-check "Recent kernel messages" bash -c 'dmesg --level=err,warn | tail -80'
+check "Recent kernel messages" bash -o pipefail -c 'dmesg --level=err,warn | tail -80'
 check "Telemetry, 5 seconds" timeout 5 tegrastats --interval 1000
 echo "NOTE: timeout status above is expected for tegrastats."
 echo "No overall PASS: ports, full RAM, storage health and sustained stability still need testing."
