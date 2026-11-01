@@ -1,0 +1,5 @@
+reports/
+__pycache__/
+*.pt
+*.engine
+.jetson-image
