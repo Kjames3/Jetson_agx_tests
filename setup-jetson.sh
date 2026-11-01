@@ -27,7 +27,7 @@ model.predict(np.zeros((640,640,3), dtype=np.uint8), device=0, verbose=False)
 torch.cuda.synchronize()
 print("CUDA YOLO smoke test passed:", torch.cuda.get_device_name(0))
 '
-  echo "Ready: python3 demo.py --source 0 --seconds 300"
+  echo "Ready: bash jetson-check.sh --demo --fullscreen --seconds 600"
   exit 0
 fi
 root=()
@@ -58,4 +58,4 @@ torch.cuda.synchronize()
 print("CUDA YOLO smoke test passed:", torch.cuda.get_device_name(0))
 '
 printf '%s\n' "$image_id" > .jetson-image
-echo "Ready: bash run-yolo.sh --source 0 --seconds 300"
+echo "Ready: bash jetson-check.sh --demo --fullscreen --seconds 600"
